@@ -25,6 +25,7 @@ export async function middleware(request) {
   }
 
   const isAuthenticated = session && session.user;
+  const userRole = session?.user?.role;
 
   if (isProtectedPath && !isAuthenticated) {
     const loginUrl = new URL("/login", request.url);
@@ -34,6 +35,21 @@ export async function middleware(request) {
 
   if (isAuthPath && isAuthenticated) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // Role-Based Route Guards
+  if (isProtectedPath && isAuthenticated) {
+    const isAdminPath = pathname.startsWith("/dashboard/users") || 
+                        pathname.startsWith("/dashboard/verifications") || 
+                        pathname.startsWith("/dashboard/doctors");
+    if (isAdminPath && userRole !== "admin") {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    const isDoctorPath = pathname.startsWith("/dashboard/reviews");
+    if (isDoctorPath && userRole !== "doctor") {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
   }
 
   return NextResponse.next();

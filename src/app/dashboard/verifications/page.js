@@ -9,28 +9,28 @@ import Button from "@/components/Button";
 import Skeleton, { SkeletonTable } from "@/components/Skeleton";
 import EmptyState from "@/components/EmptyState";
 import toast from "react-hot-toast";
-import { ShieldCheck, ShieldAlert, Award } from "lucide-react";
+import { ShieldCheck, ShieldAlert, ShieldX, Award, Stethoscope } from "lucide-react";
 
 export default function AdminVerificationsPage() {
-  const [applications, setApplications] = useState([]);
+  const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const fetchApplications = async () => {
+  const fetchDoctorsList = async () => {
     try {
-      const res = await apiRequest("/doctors?status=pending");
+      const res = await apiRequest("/doctors?status=all&limit=200");
       if (res.success) {
-        setApplications(res.data);
+        setDoctors(res.data);
       }
     } catch (err) {
-      toast.error("Could not fetch verification applications.");
+      toast.error("Could not load registered doctors list.");
     }
   };
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      await fetchApplications();
+      await fetchDoctorsList();
       setLoading(false);
     };
     load();
@@ -45,8 +45,8 @@ export default function AdminVerificationsPage() {
       });
 
       if (res.success) {
-        toast.success(`Doctor profile application marked as ${newStatus}.`);
-        fetchApplications();
+        toast.success(`Verification status updated successfully to ${newStatus}.`);
+        fetchDoctorsList();
       }
     } catch (err) {
       toast.error(err.message || "Failed to update profile verification status.");
@@ -62,53 +62,118 @@ export default function AdminVerificationsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-black text-foreground">Doctor Applications</h1>
-        <p className="text-xs text-muted-foreground">Verify and authorize credentials for new medical specialists</p>
+        <h1 className="text-2xl font-black text-foreground">Doctor Verification Workflow</h1>
+        <p className="text-xs text-muted-foreground">Manage and audit medical credentials for specialist practitioners</p>
       </div>
 
       <Card>
         <CardContent className="p-0">
-          {applications.length === 0 ? (
+          {doctors.length === 0 ? (
             <EmptyState 
-              title="Verification queue is empty" 
-              description="There are currently no pending doctor profile credentials waiting for review." 
-              icon={Award}
+              title="No doctors registered" 
+              description="There are currently no doctor profiles registered in the system database." 
+              icon={Stethoscope}
             />
           ) : (
-            <Table headers={["Name", "Specialization", "Experience", "Cons. Fee", "Actions"]}>
-              {applications.map((app) => (
-                <TableRow key={app._id}>
-                  <TableCell className="font-semibold text-foreground">{app.name}</TableCell>
-                  <TableCell className="text-xs">{app.specialization}</TableCell>
-                  <TableCell className="text-xs">{app.experience} Years</TableCell>
-                  <TableCell className="font-semibold text-foreground">${app.fee}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        disabled={isUpdating}
-                        onClick={() => handleUpdateStatus(app._id, "approved")}
-                        className="flex items-center gap-1 bg-emerald-600 border border-emerald-600 hover:bg-emerald-600/90 text-white"
-                      >
-                        <ShieldCheck size={14} />
-                        Approve
-                      </Button>
+            <Table headers={["Profile", "Name", "Specialization", "Experience", "Hospital", "Verification Status", "Actions"]}>
+              {doctors.map((doc) => {
+                const verifStatus = doc.verificationStatus || doc.status || "pending";
+                
+                return (
+                  <TableRow key={doc._id}>
+                    {/* Profile Image */}
+                    <TableCell>
+                      {doc.profileImage || doc.image ? (
+                        <img
+                          src={doc.profileImage || doc.image}
+                          alt={doc.doctorName || doc.name}
+                          className="w-10 h-10 object-cover border border-border rounded-xs"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-black text-sm rounded-xs">
+                          {(doc.doctorName || doc.name || "D")[0].toUpperCase()}
+                        </div>
+                      )}
+                    </TableCell>
 
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={isUpdating}
-                        onClick={() => handleUpdateStatus(app._id, "rejected")}
-                        className="flex items-center gap-1 text-destructive border-destructive/20 hover:bg-destructive/10"
+                    <TableCell className="font-semibold text-foreground">
+                      {doc.doctorName || doc.name}
+                    </TableCell>
+                    
+                    <TableCell className="text-xs">
+                      {doc.specialization}
+                    </TableCell>
+                    
+                    <TableCell className="text-xs">
+                      {doc.experience} Years
+                    </TableCell>
+                    
+                    <TableCell className="text-xs text-muted-foreground">
+                      {doc.hospitalName || "General Hospital"}
+                    </TableCell>
+                    
+                    <TableCell>
+                      <Badge 
+                        variant={
+                          verifStatus === "verified" || verifStatus === "approved" 
+                            ? "success" 
+                            : verifStatus === "rejected" 
+                            ? "danger" 
+                            : "warning"
+                        }
                       >
-                        <ShieldAlert size={14} />
-                        Reject
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        {verifStatus}
+                      </Badge>
+                    </TableCell>
+                    
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {/* Verify Button */}
+                        {(verifStatus !== "verified" && verifStatus !== "approved") && (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            disabled={isUpdating}
+                            onClick={() => handleUpdateStatus(doc._id, "verified")}
+                            className="flex items-center gap-1 bg-emerald-600 border border-emerald-600 hover:bg-emerald-600/90 text-white"
+                          >
+                            <ShieldCheck size={14} />
+                            Verify
+                          </Button>
+                        )}
+
+                        {/* Reject Button */}
+                        {verifStatus !== "rejected" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isUpdating}
+                            onClick={() => handleUpdateStatus(doc._id, "rejected")}
+                            className="flex items-center gap-1 text-destructive border-destructive/20 hover:bg-destructive/10"
+                          >
+                            <ShieldAlert size={14} />
+                            Reject
+                          </Button>
+                        )}
+
+                        {/* Remove Verification Button */}
+                        {(verifStatus === "verified" || verifStatus === "approved") && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isUpdating}
+                            onClick={() => handleUpdateStatus(doc._id, "pending")}
+                            className="flex items-center gap-1 text-amber-500 border-amber-500/20 hover:bg-amber-500/10"
+                          >
+                            <ShieldX size={14} />
+                            Remove Verification
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </Table>
           )}
         </CardContent>

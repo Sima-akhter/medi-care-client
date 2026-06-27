@@ -194,15 +194,56 @@ function PatientDashboard({ data }) {
 /* -------------------------------------------------------------------------- */
 /*                              DOCTOR VIEW                                   */
 /* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                              DOCTOR VIEW                                   */
+/* -------------------------------------------------------------------------- */
 function DoctorDashboard({ data }) {
-  const { stats, upcomingAppointments = [] } = data || {};
+  const { doctor, stats, upcomingAppointments = [] } = data || {};
+  const verificationStatus = doctor?.verificationStatus || "pending";
+  const isVerified = verificationStatus === "verified" || verificationStatus === "approved";
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-black text-foreground">Doctor Office</h1>
-        <p className="text-xs text-muted-foreground">Monitor schedules, review patients, and issue prescriptions</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-foreground">Doctor Office</h1>
+          <p className="text-xs text-muted-foreground">Monitor schedules, review patients, and issue prescriptions</p>
+        </div>
+        
+        {/* Verification Status Badge */}
+        <div>
+          {verificationStatus === "pending" && (
+            <Badge variant="warning" className="text-xs py-1 px-2.5">
+              Pending Verification
+            </Badge>
+          )}
+          {verificationStatus === "rejected" && (
+            <Badge variant="danger" className="text-xs py-1 px-2.5">
+              Rejected Verification
+            </Badge>
+          )}
+          {isVerified && (
+            <Badge variant="success" className="text-xs py-1 px-2.5">
+              Verified Practitioner
+            </Badge>
+          )}
+        </div>
       </div>
+
+      {/* WARNING ALERTS */}
+      {verificationStatus === "pending" && (
+        <div className="p-4 bg-amber-500/5 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xs space-y-1 text-xs">
+          <p className="font-bold">Your account is waiting for admin verification.</p>
+          <p className="text-muted-foreground">You can update your profile, but patients cannot book appointments until your account has been verified.</p>
+        </div>
+      )}
+
+      {verificationStatus === "rejected" && (
+        <div className="p-4 bg-red-500/5 border border-red-500/20 text-red-600 dark:text-red-400 rounded-xs space-y-1 text-xs">
+          <p className="font-bold">Your verification request has been rejected.</p>
+          <p className="text-muted-foreground">Please update your information and contact the administrator.</p>
+        </div>
+      )}
 
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
@@ -212,7 +253,9 @@ function DoctorDashboard({ data }) {
           </div>
           <div>
             <p className="text-2xs font-bold text-muted-foreground uppercase tracking-wider">Total Bookings</p>
-            <h3 className="text-xl font-black text-foreground">{stats?.totalAppointments || 0}</h3>
+            <h3 className="text-xl font-black text-foreground">
+              {isVerified ? stats?.totalAppointments || 0 : "—"}
+            </h3>
           </div>
         </Card>
 
@@ -222,7 +265,9 @@ function DoctorDashboard({ data }) {
           </div>
           <div>
             <p className="text-2xs font-bold text-muted-foreground uppercase tracking-wider">Earnings</p>
-            <h3 className="text-xl font-black text-foreground">${stats?.totalEarnings || 0}</h3>
+            <h3 className="text-xl font-black text-foreground">
+              {isVerified ? `$${stats?.totalEarnings || 0}` : "—"}
+            </h3>
           </div>
         </Card>
 
@@ -232,7 +277,9 @@ function DoctorDashboard({ data }) {
           </div>
           <div>
             <p className="text-2xs font-bold text-muted-foreground uppercase tracking-wider">Patients Served</p>
-            <h3 className="text-xl font-black text-foreground">{stats?.uniquePatients || 0}</h3>
+            <h3 className="text-xl font-black text-foreground">
+              {isVerified ? stats?.uniquePatients || 0 : "—"}
+            </h3>
           </div>
         </Card>
 
@@ -243,16 +290,27 @@ function DoctorDashboard({ data }) {
           <div>
             <p className="text-2xs font-bold text-muted-foreground uppercase tracking-wider">Patient Rating</p>
             <h3 className="text-xl font-black text-foreground">
-              {stats?.rating || 0} <span className="text-xs text-muted-foreground font-normal">({stats?.ratingCount || 0} reviews)</span>
+              {isVerified ? `${stats?.rating || 0} (${stats?.ratingCount || 0} reviews)` : "—"}
             </h3>
           </div>
         </Card>
       </div>
 
-      {/* Upcoming Schedules */}
+      {/* Upcoming Schedules / Feature lock block */}
       <div className="space-y-4">
         <h2 className="text-base font-bold text-foreground">Upcoming Schedules</h2>
-        {upcomingAppointments.length === 0 ? (
+        {!isVerified ? (
+          <div className="p-8 border border-dashed border-border bg-card/40 rounded-xs text-center flex flex-col items-center justify-center gap-2">
+            <Stethoscope size={36} className="text-muted-foreground/60 mb-2" />
+            <h4 className="text-xs font-bold text-foreground">Schedules & Appointments Disabled</h4>
+            <p className="text-3xs text-muted-foreground max-w-sm leading-relaxed">
+              {verificationStatus === "pending"
+                ? "Appointment scheduling features are disabled until your medical credentials have been verified by administrators."
+                : "Appointment scheduling features are locked due to rejection. Please review your profile data."
+              }
+            </p>
+          </div>
+        ) : upcomingAppointments.length === 0 ? (
           <EmptyState 
             title="Empty schedule" 
             description="You have no pending consultations booked for the near future." 

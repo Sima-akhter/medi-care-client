@@ -52,6 +52,8 @@ export default function AppointmentsPortal() {
   const [bookingOpen, setBookingOpen] = useState(false);
   const [prescriptionOpen, setPrescriptionOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [isVerified, setIsVerified] = useState(true);
+  const [verificationStatus, setVerificationStatus] = useState("pending");
 
   // Selected elements
   const [selectedAppointment, setSelectedAppointment] = useState(null);
@@ -84,6 +86,22 @@ export default function AppointmentsPortal() {
   useEffect(() => {
     const init = async () => {
       setLoading(true);
+      
+      if (role === "doctor") {
+        try {
+          const dashRes = await apiRequest("/dashboard/doctor");
+          if (dashRes.success) {
+            const status = dashRes.data?.doctor?.verificationStatus || dashRes.data?.doctor?.status || "pending";
+            setVerificationStatus(status);
+            if (status !== "verified" && status !== "approved") {
+              setIsVerified(false);
+            }
+          }
+        } catch (err) {
+          console.error("Doctor status verification failed:", err);
+        }
+      }
+
       await fetchAppointments();
       if (role === "patient") {
         await fetchDoctors();
@@ -230,6 +248,27 @@ export default function AppointmentsPortal() {
 
   if (loading) {
     return <SkeletonTable />;
+  }
+
+  if (role === "doctor" && !isVerified) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-black text-foreground">Appointments</h1>
+          <p className="text-xs text-muted-foreground">Audit, manage, and book consultations</p>
+        </div>
+        <div className="p-8 border border-dashed border-border bg-card/40 rounded-xs text-center flex flex-col items-center justify-center gap-2">
+          <Stethoscope size={36} className="text-muted-foreground/60 mb-2" />
+          <h4 className="text-xs font-bold text-foreground">Schedules & Appointments Disabled</h4>
+          <p className="text-3xs text-muted-foreground max-w-sm leading-relaxed">
+            {verificationStatus === "pending"
+              ? "Appointment scheduling features are disabled until your medical credentials have been verified by administrators."
+              : "Appointment scheduling features are locked due to rejection. Please review your profile data."
+            }
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
