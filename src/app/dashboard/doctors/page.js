@@ -9,7 +9,7 @@ import Button from "@/components/Button";
 import Skeleton, { SkeletonTable } from "@/components/Skeleton";
 import EmptyState from "@/components/EmptyState";
 import toast from "react-hot-toast";
-import { Trash2, Stethoscope, Star } from "lucide-react";
+import { Stethoscope, CheckCircle, XCircle } from "lucide-react";
 
 export default function AdminDoctorsPage() {
   const [doctors, setDoctors] = useState([]);
@@ -18,7 +18,7 @@ export default function AdminDoctorsPage() {
 
   const fetchDoctors = async () => {
     try {
-      const res = await apiRequest("/doctors?status=approved&limit=100");
+      const res = await apiRequest("/doctors?status=all&limit=200");
       if (res.success) {
         setDoctors(res.data);
       }
@@ -36,20 +36,37 @@ export default function AdminDoctorsPage() {
     load();
   }, []);
 
-  const handleDeleteDoctor = async (docId) => {
-    if (!confirm("Are you sure you want to permanently delete this doctor profile? The user will be demoted to patient status.")) return;
+  const handleVerify = async (doctorId) => {
     setIsUpdating(true);
     try {
-      const res = await apiRequest(`/doctors/${docId}`, {
-        method: "DELETE",
+      const res = await apiRequest(`/doctors/${doctorId}/verify`, {
+        method: "PATCH",
       });
 
       if (res.success) {
-        toast.success("Doctor profile deleted successfully.");
+        toast.success("Doctor verified successfully.");
         fetchDoctors();
       }
     } catch (err) {
-      toast.error(err.message || "Failed to delete doctor profile.");
+      toast.error(err.message || "Failed to verify doctor.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleReject = async (doctorId) => {
+    setIsUpdating(true);
+    try {
+      const res = await apiRequest(`/doctors/${doctorId}/reject`, {
+        method: "PATCH",
+      });
+
+      if (res.success) {
+        toast.success("Doctor rejected successfully.");
+        fetchDoctors();
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to reject doctor.");
     } finally {
       setIsUpdating(false);
     }
@@ -62,44 +79,78 @@ export default function AdminDoctorsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-black text-foreground">Doctor Directory</h1>
-        <p className="text-xs text-muted-foreground">Monitor approved healthcare specialists and profiles</p>
+        <h1 className="text-2xl font-black text-foreground">Manage Doctors</h1>
+        <p className="text-xs text-muted-foreground">Verify, reject, or audit specialist registration requests</p>
       </div>
 
       <Card>
         <CardContent className="p-0">
           {doctors.length === 0 ? (
             <EmptyState 
-              title="No doctors approved" 
-              description="Authorizations will appear here after approving application requests." 
+              title="No Doctors Registered" 
+              description="Doctor registrations will appear here for verification reviews." 
               icon={Stethoscope}
             />
           ) : (
-            <Table headers={["Name", "Specialization", "Experience", "Consultation Fee", "Rating", "Action"]}>
-              {doctors.map((doc) => (
-                <TableRow key={doc._id}>
-                  <TableCell className="font-semibold text-foreground">{doc.name}</TableCell>
-                  <TableCell className="text-xs">{doc.specialization}</TableCell>
-                  <TableCell className="text-xs">{doc.experience} Years</TableCell>
-                  <TableCell className="font-semibold text-foreground">${doc.fee}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1 text-amber-500 font-bold text-xs">
-                      <Star size={14} fill="currentColor" />
-                      {doc.rating || 0} ({doc.ratingCount || 0} reviews)
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <button
-                      onClick={() => handleDeleteDoctor(doc._id)}
-                      disabled={isUpdating}
-                      className="p-2 hover:bg-destructive/10 text-destructive rounded-xs transition-colors cursor-pointer"
-                      title="Delete profile"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </TableCell>
-                </TableRow>
-              ))}
+            <Table headers={["Name", "Specialization", "Hospital", "Verification Status", "Actions"]}>
+              {doctors.map((doc) => {
+                const verifStatus = doc.verificationStatus || doc.status || "pending";
+                const displayName = doc.doctorName || doc.name || "Doctor";
+                
+                return (
+                  <TableRow key={doc._id}>
+                    <TableCell className="font-semibold text-foreground">{displayName}</TableCell>
+                    <TableCell className="text-xs">{doc.specialization}</TableCell>
+                    <TableCell className="text-xs">{doc.hospitalName || "General Hospital"}</TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={
+                          verifStatus === "verified" || verifStatus === "approved" 
+                            ? "success" 
+                            : verifStatus === "rejected" 
+                            ? "danger" 
+                            : "warning"
+                        }
+                      >
+                        {verifStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {verifStatus === "pending" ? (
+                          <>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              disabled={isUpdating}
+                              onClick={() => handleVerify(doc._id)}
+                              className="flex items-center gap-1 bg-emerald-600 border border-emerald-600 hover:bg-emerald-600/90 text-white"
+                            >
+                              <CheckCircle size={14} />
+                              Verify
+                            </Button>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isUpdating}
+                              onClick={() => handleReject(doc._id)}
+                              className="flex items-center gap-1 text-destructive border-destructive/20 hover:bg-destructive/10"
+                            >
+                              <XCircle size={14} />
+                              Reject
+                            </Button>
+                          </>
+                        ) : (
+                          <span className="text-2xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            No Actions Required
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </Table>
           )}
         </CardContent>

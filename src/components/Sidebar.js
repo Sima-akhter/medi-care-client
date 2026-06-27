@@ -57,7 +57,6 @@ export default function Sidebar({ role, isOpen, setIsOpen }) {
         return [
           { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
           { name: "Users", href: "/dashboard/users", icon: Users },
-          { name: "Verifications", href: "/dashboard/verifications", icon: ShieldCheck },
           { name: "Doctors", href: "/dashboard/doctors", icon: Stethoscope },
           { name: "Appointments", href: "/dashboard/appointments", icon: CalendarDays },
           { name: "Profile", href: "/dashboard/profile", icon: User }

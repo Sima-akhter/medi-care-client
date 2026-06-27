@@ -34,7 +34,8 @@ import {
   Users,
   Star,
   CheckCircle2,
-  Bookmark
+  Bookmark,
+  DollarSign
 } from "lucide-react";
 import toast from "react-hot-toast";
 

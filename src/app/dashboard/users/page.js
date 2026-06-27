@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { authClient } from "@/lib/auth-client";
 import { apiRequest } from "@/lib/api-client";
 import Card, { CardContent } from "@/components/Card";
 import Table, { TableRow, TableCell } from "@/components/Table";
@@ -13,6 +14,9 @@ import toast from "react-hot-toast";
 import { UserCheck, UserX, ShieldAlert, Trash2 } from "lucide-react";
 
 export default function AdminUsersPage() {
+  const { data: session } = authClient.useSession();
+  const currentUserId = session?.user?.id;
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -152,25 +156,37 @@ export default function AdminUsersPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={isUpdating}
-                        onClick={() => handleUpdateStatus(u._id, u.status)}
-                        className="flex items-center gap-1"
-                      >
-                        {u.status === "active" ? (
-                          <>
-                            <UserX size={14} className="text-destructive" />
-                            Block
-                          </>
-                        ) : (
-                          <>
-                            <UserCheck size={14} className="text-emerald-600" />
-                            Unblock
-                          </>
-                        )}
-                      </Button>
+                      {u._id === currentUserId && u.role === 'admin' ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={true}
+                          className="flex items-center gap-1 opacity-50 cursor-not-allowed text-muted-foreground"
+                        >
+                          <UserX size={14} />
+                          Block
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isUpdating}
+                          onClick={() => handleUpdateStatus(u._id, u.status)}
+                          className="flex items-center gap-1"
+                        >
+                          {u.status === "active" ? (
+                            <>
+                              <UserX size={14} className="text-destructive" />
+                              Block
+                            </>
+                          ) : (
+                            <>
+                              <UserCheck size={14} className="text-emerald-600" />
+                              Unblock
+                            </>
+                          )}
+                        </Button>
+                      )}
 
                       {u.role !== "admin" && (
                         <Button
@@ -183,14 +199,16 @@ export default function AdminUsersPage() {
                         </Button>
                       )}
 
-                      <button
-                        onClick={() => handleDeleteUser(u._id)}
-                        disabled={isUpdating}
-                        className="p-2 hover:bg-destructive/10 text-destructive rounded-xs transition-colors cursor-pointer"
-                        title="Delete account"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {u._id !== currentUserId && (
+                        <button
+                          onClick={() => handleDeleteUser(u._id)}
+                          disabled={isUpdating}
+                          className="p-2 hover:bg-destructive/10 text-destructive rounded-xs transition-colors cursor-pointer"
+                          title="Delete account"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
