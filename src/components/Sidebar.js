@@ -82,7 +82,7 @@ export default function Sidebar({ role, isOpen, setIsOpen }) {
         className={`fixed top-0 bottom-0 left-0 bg-card border-r border-border w-64 z-40 transform transition-transform duration-200 ease-in-out flex flex-col lg:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="h-16 flex items-center justify-between px-6 border-b border-border bg-card">
-          <Link href="/dashboard" className="flex items-center gap-2 font-bold text-primary">
+          <Link href="/" className="flex items-center gap-2 font-bold text-primary">
             <Stethoscope size={22} />
             <span className="tracking-tight text-foreground font-black">MediCare</span>
           </Link>
