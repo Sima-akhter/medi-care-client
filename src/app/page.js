@@ -433,51 +433,58 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {featuredDoctors.map((doc) => (
-                <Card key={doc._id} className="flex flex-col justify-between hover:border-primary/50 transition-colors">
-                  <CardHeader className="pb-3 flex flex-row items-center gap-4">
-                    {doc.image ? (
-                      <img
-                        src={doc.image}
-                        alt={doc.name}
-                        className="w-14 h-14 object-cover border border-border rounded-xs shrink-0"
-                      />
-                    ) : (
-                      <div className="w-14 h-14 bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-black text-lg rounded-xs shrink-0">
-                        {doc.name ? doc.name[0].toUpperCase() : "D"}
-                      </div>
-                    )}
-                    <div>
-                      <CardTitle className="text-sm font-bold text-foreground">{doc.name}</CardTitle>
-                      <Badge variant="success" className="mt-1">
-                        {doc.specialization}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4 pt-0">
-                    <div className="text-3xs text-muted-foreground font-semibold uppercase tracking-wider space-y-1.5 pt-2 border-t border-border/40">
-                      <div className="flex items-center gap-1.5">
-                        <Award size={13} className="text-primary" />
-                        <span>{doc.experience} Years Experience</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Star size={13} className="text-amber-500 fill-current" />
-                        <span>Rating: {doc.rating || 0} ({doc.ratingCount || 0} Reviews)</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <DollarSign size={13} className="text-primary" />
-                        <span>Consultation Fee: ${doc.fee}</span>
-                      </div>
-                    </div>
+              {featuredDoctors.map((doc) => {
+                const displayName = doc.name || doc.doctorName || "Doctor";
+                const displayImage = doc.profileImage || doc.image;
+                const displayFee = doc.consultationFee !== undefined ? doc.consultationFee : doc.fee;
+                const displayReviews = doc.ratingCount !== undefined ? doc.ratingCount : (doc.totalReviews || 0);
 
-                    <Link href={`/doctors/${doc._id}`} className="block w-full mt-2">
-                      <Button variant="primary" size="sm" className="w-full">
-                        View Profile & Details
-                      </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-              ))}
+                return (
+                  <Card key={doc._id} className="flex flex-col justify-between hover:border-primary/50 transition-colors">
+                    <CardHeader className="pb-3 flex flex-row items-center gap-4">
+                      {displayImage ? (
+                        <img
+                          src={displayImage}
+                          alt={displayName}
+                          className="w-14 h-14 object-cover border border-border rounded-xs shrink-0"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-black text-lg rounded-xs shrink-0">
+                          {displayName[0].toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <CardTitle className="text-sm font-bold text-foreground">{displayName}</CardTitle>
+                        <Badge variant="success" className="mt-1">
+                          {doc.specialization}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4 pt-0">
+                      <div className="text-3xs text-muted-foreground font-semibold uppercase tracking-wider space-y-1.5 pt-2 border-t border-border/40">
+                        <div className="flex items-center gap-1.5">
+                          <Award size={13} className="text-primary" />
+                          <span>{doc.experience} Years Experience</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Star size={13} className="text-amber-500 fill-current" />
+                          <span>Rating: {doc.rating || 0} ({displayReviews} Reviews)</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <DollarSign size={13} className="text-primary" />
+                          <span>Consultation Fee: ${displayFee}</span>
+                        </div>
+                      </div>
+
+                      <Link href={`/doctors/${doc._id}`} className="block w-full mt-2">
+                        <Button variant="primary" size="sm" className="w-full">
+                          View Profile & Details
+                        </Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -11,30 +11,81 @@ import Input from "@/components/Input";
 import Button from "@/components/Button";
 import Card, { CardHeader, CardTitle, CardDescription, CardContent } from "@/components/Card";
 import Badge from "@/components/Badge";
-import { User, Mail, Shield, UserCog } from "lucide-react";
+import { User, Mail, Shield, UserCog, Stethoscope } from "lucide-react";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   image: z.string().url("Must be a valid photo URL").or(z.literal("")),
+  specialization: z.string().optional(),
+  qualifications: z.string().optional(),
+  experience: z.string().optional(),
+  fee: z.string().optional(),
+  hospitalName: z.string().optional(),
+  bio: z.string().optional(),
 });
 
 export default function ProfilePage() {
   const { data: session } = authClient.useSession();
   const [isLoading, setIsLoading] = useState(false);
+  const [doctorProfile, setDoctorProfile] = useState(null);
+  const [isFetchingDoctor, setIsFetchingDoctor] = useState(false);
 
   const user = session?.user;
+  const isDoctor = user?.role === "doctor";
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      name: user?.name || "",
-      image: user?.image || "",
+      name: "",
+      image: "",
+      specialization: "",
+      qualifications: "",
+      experience: "",
+      fee: "",
+      hospitalName: "",
+      bio: "",
     },
   });
+
+  // Prepopulate basic user info
+  useEffect(() => {
+    if (user) {
+      setValue("name", user.name || "");
+      setValue("image", user.image || "");
+    }
+  }, [user, setValue]);
+
+  // Load doctor details if role is doctor
+  useEffect(() => {
+    const fetchDoctorInfo = async () => {
+      if (!isDoctor) return;
+      try {
+        setIsFetchingDoctor(true);
+        const res = await apiRequest("/dashboard/doctor");
+        if (res.success && res.data?.doctor) {
+          const doc = res.data.doctor;
+          setDoctorProfile(doc);
+          setValue("specialization", doc.specialization || "");
+          setValue("qualifications", doc.qualifications || "");
+          setValue("experience", String(doc.experience || ""));
+          setValue("fee", String(doc.consultationFee || doc.fee || ""));
+          setValue("hospitalName", doc.hospitalName || "");
+          setValue("bio", doc.bio || "");
+        }
+      } catch (err) {
+        console.error("Failed to load doctor profile:", err);
+      } finally {
+        setIsFetchingDoctor(false);
+      }
+    };
+
+    fetchDoctorInfo();
+  }, [isDoctor, setValue]);
 
   const onSubmit = async (values) => {
     setIsLoading(true);
@@ -49,13 +100,30 @@ export default function ProfilePage() {
         throw new Error(error.message || "Failed to update profile on auth server.");
       }
 
-      // 2. Synchronize with backend Express server database
+      // 2. Synchronize with backend Express server database users collection
       await apiRequest("/users/me", {
         method: "PUT",
         body: JSON.stringify({
           name: values.name,
         }),
       });
+
+      // 3. If doctor, synchronize doctor profile fields
+      if (isDoctor && doctorProfile) {
+        await apiRequest(`/doctors/${doctorProfile.id || doctorProfile._id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            name: values.name,
+            specialization: values.specialization,
+            qualifications: values.qualifications,
+            experience: values.experience,
+            fee: values.fee,
+            hospitalName: values.hospitalName,
+            profileImage: values.image,
+            bio: values.bio,
+          }),
+        });
+      }
 
       toast.success("Profile updated successfully!");
       window.location.reload();
@@ -65,6 +133,8 @@ export default function ProfilePage() {
       setIsLoading(false);
     }
   };
+
+  const verifStatus = doctorProfile?.verificationStatus || doctorProfile?.status || "pending";
 
   return (
     <div className="space-y-8">
@@ -106,10 +176,23 @@ export default function ProfilePage() {
                 {user?.role || "patient"}
               </Badge>
             </div>
+            
+            {isDoctor && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground font-medium flex items-center gap-1">
+                  <UserCog size={12} />
+                  Verification:
+                </span>
+                <Badge variant={verifStatus === "verified" || verifStatus === "approved" ? "success" : verifStatus === "rejected" ? "danger" : "warning"}>
+                  {verifStatus}
+                </Badge>
+              </div>
+            )}
+
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground font-medium flex items-center gap-1">
                 <UserCog size={12} />
-                Status:
+                Account Status:
               </span>
               <Badge variant={user?.status === "active" ? "success" : "danger"}>
                 {user?.status || "active"}
@@ -125,33 +208,115 @@ export default function ProfilePage() {
             <CardDescription>Keep your profile details up to date</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <Input
-                label="Full Name"
-                name="name"
-                register={register}
-                error={errors.name?.message}
-                disabled={isLoading}
-              />
+            {isFetchingDoctor ? (
+              <div className="p-8 text-center text-xs font-semibold text-muted-foreground animate-pulse">
+                Fetching medical records...
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    label="Full Name"
+                    name="name"
+                    register={register}
+                    error={errors.name?.message}
+                    disabled={isLoading}
+                  />
 
-              <Input
-                label="Photo URL"
-                name="image"
-                placeholder="https://images.unsplash.com/photo-..."
-                register={register}
-                error={errors.image?.message}
-                disabled={isLoading}
-              />
+                  <Input
+                    label="Photo URL"
+                    name="image"
+                    placeholder="https://images.unsplash.com/photo-..."
+                    register={register}
+                    error={errors.image?.message}
+                    disabled={isLoading}
+                  />
+                </div>
 
-              <Button
-                type="submit"
-                variant="primary"
-                isLoading={isLoading}
-                className="mt-2"
-              >
-                Save Changes
-              </Button>
-            </form>
+                {/* DOCTOR FIELDS */}
+                {isDoctor && (
+                  <div className="p-4 bg-primary/5 border border-primary/10 rounded-xs space-y-4">
+                    <p className="text-xs font-bold text-primary uppercase tracking-wider border-b border-primary/20 pb-1 flex items-center gap-1.5">
+                      <Stethoscope size={14} />
+                      Medical Credentials
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Input
+                        label="Specialization"
+                        name="specialization"
+                        placeholder="e.g. Cardiology, Neurology"
+                        register={register}
+                        error={errors.specialization?.message}
+                        disabled={isLoading}
+                      />
+
+                      <Input
+                        label="Qualifications"
+                        name="qualifications"
+                        placeholder="e.g. MBBS, MD, FCPS"
+                        register={register}
+                        error={errors.qualifications?.message}
+                        disabled={isLoading}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Input
+                        label="Experience (Years)"
+                        name="experience"
+                        type="number"
+                        placeholder="e.g. 10"
+                        register={register}
+                        error={errors.experience?.message}
+                        disabled={isLoading}
+                      />
+
+                      <Input
+                        label="Consultation Fee ($)"
+                        name="fee"
+                        type="number"
+                        placeholder="e.g. 150"
+                        register={register}
+                        error={errors.fee?.message}
+                        disabled={isLoading}
+                      />
+                    </div>
+
+                    <Input
+                      label="Hospital Name"
+                      name="hospitalName"
+                      placeholder="e.g. GreenValley Medical Center"
+                      register={register}
+                      error={errors.hospitalName?.message}
+                      disabled={isLoading}
+                    />
+
+                    <div className="flex flex-col gap-1 w-full">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Bio & Remarks
+                      </label>
+                      <textarea
+                        {...register("bio")}
+                        disabled={isLoading}
+                        rows={3}
+                        className="w-full bg-background border border-border rounded-xs px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent transition-all"
+                        placeholder="Tell patients about your medical background..."
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  isLoading={isLoading}
+                  className="mt-2 w-full sm:w-fit"
+                >
+                  Save Changes
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
       </div>

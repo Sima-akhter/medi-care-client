@@ -252,7 +252,7 @@ export default function RegisterPage() {
                     className="w-full bg-background border border-border rounded-xs px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent transition-all cursor-pointer font-bold text-primary"
                   >
                     <option value="patient">Register as Patient</option>
-                    <option value="doctor font-black">Register as Doctor Specialist</option>
+                    <option value="doctor">Register as Doctor Specialist</option>
                   </select>
                   {errors.role && (
                     <span className="text-xs font-medium text-destructive mt-0.5">{errors.role.message}</span>

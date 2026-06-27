@@ -23,24 +23,13 @@ export default function ReviewsPage() {
       try {
         setLoading(true);
 
-        // Find doctor profile by checking approved, pending or rejected lists
-        let foundProfile = null;
-        const statuses = ["approved", "pending", "rejected"];
-        for (const status of statuses) {
-          const res = await apiRequest(`/doctors?status=${status}&limit=100`);
-          if (res.success) {
-            const found = res.data.find(d => d.userId === user.id);
-            if (found) {
-              foundProfile = found;
-              break;
-            }
-          }
-        }
-
-        if (foundProfile) {
+        const res = await apiRequest("/dashboard/doctor");
+        if (res.success && res.data?.doctor) {
+          const foundProfile = res.data.doctor;
           setDoctorProfile(foundProfile);
+          
           // Load reviews for doctor
-          const reviewRes = await apiRequest(`/reviews/doctor/${foundProfile._id}`);
+          const reviewRes = await apiRequest(`/reviews/doctor/${foundProfile.id || foundProfile._id}`);
           if (reviewRes.success) {
             setReviews(reviewRes.data);
           }
@@ -91,7 +80,7 @@ export default function ReviewsPage() {
             {doctorProfile.rating || 0}
           </div>
           <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-            ({doctorProfile.ratingCount || 0} ratings)
+            ({doctorProfile.ratingCount || doctorProfile.totalReviews || 0} ratings)
           </span>
         </div>
       </div>

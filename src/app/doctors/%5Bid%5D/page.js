@@ -78,9 +78,10 @@ export default function DoctorDetailsPage({ params }) {
     );
   }
 
-  if (!doctor) {
-    return null;
-  }
+  const displayName = doctor.name || doctor.doctorName || "Doctor";
+  const displayImage = doctor.profileImage || doctor.image;
+  const displayFee = doctor.consultationFee !== undefined ? doctor.consultationFee : doctor.fee;
+  const displayReviews = doctor.ratingCount !== undefined ? doctor.ratingCount : (doctor.totalReviews || 0);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col transition-colors duration-150">
@@ -98,15 +99,15 @@ export default function DoctorDetailsPage({ params }) {
         <Card className="p-6">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
             <div className="shrink-0">
-              {doctor.image ? (
+              {displayImage ? (
                 <img
-                  src={doctor.image}
-                  alt={doctor.name}
+                  src={displayImage}
+                  alt={displayName}
                   className="w-28 h-28 object-cover border-2 border-primary/20 rounded-xs"
                 />
               ) : (
                 <div className="w-28 h-28 bg-primary/10 border-2 border-primary/20 text-primary flex items-center justify-center font-black text-3xl rounded-xs">
-                  {doctor.name ? doctor.name[0].toUpperCase() : "D"}
+                  {displayName[0].toUpperCase()}
                 </div>
               )}
             </div>
@@ -114,7 +115,7 @@ export default function DoctorDetailsPage({ params }) {
             <div className="flex-1 text-center md:text-left space-y-4">
               <div>
                 <Badge variant="success">{doctor.specialization}</Badge>
-                <h1 className="text-2xl font-black text-foreground mt-1.5">{doctor.name}</h1>
+                <h1 className="text-2xl font-black text-foreground mt-1.5">{displayName}</h1>
                 <p className="text-xs text-muted-foreground mt-1">Verified Healthcare Specialist</p>
               </div>
 
@@ -130,14 +131,14 @@ export default function DoctorDetailsPage({ params }) {
                   <span className="text-muted-foreground font-medium">Consultation Fee</span>
                   <p className="font-bold text-foreground flex items-center justify-center md:justify-start gap-1">
                     <DollarSign size={14} className="text-primary" />
-                    ${doctor.fee}
+                    ${displayFee}
                   </p>
                 </div>
                 <div className="space-y-0.5 col-span-2 sm:col-span-1">
                   <span className="text-muted-foreground font-medium">Rating Score</span>
                   <p className="font-bold text-foreground flex items-center justify-center md:justify-start gap-1">
                     <Star size={14} className="text-amber-500 fill-current" />
-                    {doctor.rating || 0} ({doctor.ratingCount || 0} Reviews)
+                    {doctor.rating || 0} ({displayReviews} Reviews)
                   </p>
                 </div>
               </div>
@@ -173,8 +174,13 @@ export default function DoctorDetailsPage({ params }) {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Dr. {doctor.name} is a highly accomplished {doctor.specialization} specialist with over {doctor.experience} years of clinical practice. Recognized for professional dedication and patient-centric care, they coordinate diagnostic checkups, wellness advice, and treatment audits.
+                  Dr. {displayName} is a highly accomplished {doctor.specialization} specialist with over {doctor.experience} years of clinical practice. Recognized for professional dedication and patient-centric care, they coordinate diagnostic checkups, wellness advice, and treatment audits.
                 </p>
+                {doctor.bio && (
+                  <p className="text-xs text-foreground bg-muted/10 p-3 border border-border/50 rounded-xs leading-relaxed">
+                    {doctor.bio}
+                  </p>
+                )}
                 <div className="flex flex-col gap-2 pt-2 border-t border-border/40 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Specialty Department</span>
@@ -235,7 +241,7 @@ export default function DoctorDetailsPage({ params }) {
                 <div className="p-3 bg-primary/5 border border-primary/10 rounded-xs flex flex-col gap-2">
                   <div className="flex justify-between font-bold">
                     <span>Consultation Fee:</span>
-                    <span className="text-primary">${doctor.fee}</span>
+                    <span className="text-primary">${displayFee}</span>
                   </div>
                   <p className="text-3xs text-muted-foreground leading-relaxed">
                     Stripe transaction fees apply upon appointment bookings confirmation.
