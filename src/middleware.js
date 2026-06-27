@@ -1,19 +1,38 @@
 import { NextResponse } from "next/server";
 
-export function middleware(request) {
+export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
   const isProtectedPath = pathname.startsWith("/dashboard");
-  const sessionToken = request.cookies.get("better-auth.session_token");
+  const isAuthPath = pathname.startsWith("/login") || pathname.startsWith("/register");
 
-  if (isProtectedPath && !sessionToken) {
+  if (!isProtectedPath && !isAuthPath) {
+    return NextResponse.next();
+  }
+
+  let session = null;
+  try {
+    const sessionRes = await fetch(new URL("/api/auth/get-session", request.url), {
+      headers: {
+        cookie: request.headers.get("cookie") || "",
+      },
+    });
+    if (sessionRes.ok) {
+      session = await sessionRes.json();
+    }
+  } catch (err) {
+    console.error("Session verification failed in middleware:", err);
+  }
+
+  const isAuthenticated = session && session.user;
+
+  if (isProtectedPath && !isAuthenticated) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  const isAuthPath = pathname.startsWith("/login") || pathname.startsWith("/register");
-  if (isAuthPath && sessionToken) {
+  if (isAuthPath && isAuthenticated) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
