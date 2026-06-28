@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -584,7 +585,7 @@ export default function Home() {
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground italic leading-relaxed">
-                      "{rev.comment}"
+                      &quot;{rev.comment}&quot;
                     </p>
                   </div>
                   <div className="px-5 pb-4 text-3xs text-muted-foreground/60 font-semibold uppercase tracking-wider pt-2 border-t border-border/40">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { apiRequest } from "@/lib/api-client";
 import Card, { CardHeader, CardTitle, CardContent, CardDescription } from "@/components/Card";
@@ -91,7 +92,7 @@ export default function DashboardPortal() {
 /*                              PATIENT VIEW                                  */
 /* -------------------------------------------------------------------------- */
 function PatientDashboard({ data }) {
-  const { stats, upcomingAppointments = [], recentPayments = [] } = data || {};
+  const { stats, upcomingAppointments = [], appointmentHistory = [], favoriteDoctors = [], recentPayments = [] } = data || {};
 
   return (
     <div className="space-y-8">
@@ -127,17 +128,20 @@ function PatientDashboard({ data }) {
             <DollarSign size={20} />
           </div>
           <div>
-            <p className="text-2xs font-bold text-muted-foreground uppercase tracking-wider">Total Invested</p>
+            <p className="text-2xs font-bold text-muted-foreground uppercase tracking-wider">Total Payments</p>
             <h3 className="text-xl font-black text-foreground">${stats?.totalSpent || 0}</h3>
           </div>
         </Card>
       </div>
 
-      {/* Tables section */}
+      {/* Active Schedules & Past History */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Upcoming appointments */}
         <div className="space-y-4">
-          <h2 className="text-base font-bold text-foreground">Upcoming Schedules</h2>
+          <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+            <CalendarDays size={18} className="text-primary" />
+            Upcoming Appointments
+          </h2>
           {upcomingAppointments.length === 0 ? (
             <EmptyState 
               title="No upcoming visits" 
@@ -165,9 +169,91 @@ function PatientDashboard({ data }) {
           )}
         </div>
 
+        {/* Appointment History */}
+        <div className="space-y-4">
+          <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+            <Activity size={18} className="text-primary" />
+            Appointment History
+          </h2>
+          {appointmentHistory.length === 0 ? (
+            <EmptyState 
+              title="No past appointments" 
+              description="Your completed or cancelled appointment history will be listed here." 
+            />
+          ) : (
+            <Table headers={["Doctor", "Date/Time", "Status", "Payment"]}>
+              {appointmentHistory.map((app) => (
+                <TableRow key={app._id}>
+                  <TableCell className="font-semibold text-foreground">{app.doctorName}</TableCell>
+                  <TableCell className="text-xs">{app.appointmentDate} at {app.appointmentTime}</TableCell>
+                  <TableCell>
+                    <Badge variant={app.status === "completed" ? "primary" : app.status === "cancelled" ? "danger" : "warning"}>
+                      {app.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={app.paymentStatus === "paid" ? "success" : "danger"}>
+                      {app.paymentStatus}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </Table>
+          )}
+        </div>
+      </div>
+
+      {/* Favorites & Recent Billings */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Favorite Doctors */}
+        <div className="space-y-4">
+          <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+            <Star size={18} className="text-primary" />
+            Favorite Doctors
+          </h2>
+          {favoriteDoctors.length === 0 ? (
+            <EmptyState 
+              title="No favorites added" 
+              description="Heart your preferred doctors on their detail page to save them here." 
+            />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {favoriteDoctors.map((doc) => {
+                const displayName = doc.name || doc.doctorName || "Doctor";
+                const displayImage = doc.profileImage || doc.image;
+                return (
+                  <Card key={doc._id} className="p-4 flex gap-4 items-center hover:border-primary/40 transition-colors">
+                    {displayImage ? (
+                      <img
+                        src={displayImage}
+                        alt={displayName}
+                        className="w-12 h-12 rounded-xs object-cover border border-border"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xs bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold text-sm shrink-0">
+                        {displayName[0].toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs font-bold text-foreground truncate">{displayName}</h4>
+                      <p className="text-3xs text-muted-foreground truncate">{doc.specialization}</p>
+                      <Link href={`/doctors/${doc._id}`} className="text-3xs text-primary font-bold hover:underline block mt-1">
+                        View Details & Book
+                      </Link>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Recent payments */}
         <div className="space-y-4">
-          <h2 className="text-base font-bold text-foreground">Recent Billings</h2>
+          <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+            <DollarSign size={18} className="text-primary" />
+            Recent Billings
+          </h2>
           {recentPayments.length === 0 ? (
             <EmptyState 
               title="No billing records" 

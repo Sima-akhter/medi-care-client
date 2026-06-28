@@ -46,8 +46,14 @@ export async function middleware(request) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
-    const isDoctorPath = pathname.startsWith("/dashboard/reviews");
-    if (isDoctorPath && userRole !== "doctor") {
+    const isPatientPath = pathname.startsWith("/dashboard/payments") || 
+                          pathname.startsWith("/dashboard/payment");
+    if (isPatientPath && userRole !== "patient") {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    const isReviewsPath = pathname.startsWith("/dashboard/reviews");
+    if (isReviewsPath && userRole !== "doctor" && userRole !== "patient") {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }

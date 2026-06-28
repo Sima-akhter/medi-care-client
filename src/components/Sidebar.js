@@ -43,6 +43,7 @@ export default function Sidebar({ role, isOpen, setIsOpen }) {
           { name: "My Appointments", href: "/dashboard/appointments", icon: CalendarDays },
           { name: "Payment History", href: "/dashboard/payments", icon: History },
           { name: "Prescriptions", href: "/dashboard/prescriptions", icon: FileText },
+          { name: "My Reviews", href: "/dashboard/reviews", icon: Star },
           { name: "Profile", href: "/dashboard/profile", icon: User }
         ];
       case "doctor":

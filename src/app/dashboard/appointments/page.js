@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { apiRequest } from "@/lib/api-client";
 import { useForm } from "react-hook-form";
@@ -24,12 +24,21 @@ import {
   CreditCard, 
   Star,
   FileEdit,
-  ClipboardList
+  ClipboardList,
+  Eye,
+  RefreshCw
 } from "lucide-react";
 
 // Booking appointment schema
 const bookingSchema = z.object({
   doctorId: z.string().min(1, "Please choose a doctor"),
+  appointmentDate: z.string().min(1, "Date is required"),
+  appointmentTime: z.string().min(1, "Time is required"),
+  symptoms: z.string().min(3, "Please describe your symptoms (min 3 characters)"),
+});
+
+// Reschedule schema
+const rescheduleSchema = z.object({
   appointmentDate: z.string().min(1, "Date is required"),
   appointmentTime: z.string().min(1, "Time is required"),
 });
@@ -40,18 +49,24 @@ const reviewSchema = z.object({
   comment: z.string().min(3, "Comment must be at least 3 characters"),
 });
 
-export default function AppointmentsPortal() {
+function AppointmentsPortalContent() {
   const { data: session } = authClient.useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const role = session?.user?.role || "patient";
 
   const [appointments, setAppointments] = useState([]);
   const [doctors, setDoctors] = useState([]);
+  const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
+  
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [prescriptionOpen, setPrescriptionOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  
   const [isVerified, setIsVerified] = useState(true);
   const [verificationStatus, setVerificationStatus] = useState("pending");
 
@@ -83,6 +98,17 @@ export default function AppointmentsPortal() {
     }
   };
 
+  const fetchPrescriptions = async () => {
+    try {
+      const res = await apiRequest("/prescriptions");
+      if (res.success) {
+        setPrescriptions(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     const init = async () => {
       setLoading(true);
@@ -103,6 +129,7 @@ export default function AppointmentsPortal() {
       }
 
       await fetchAppointments();
+      await fetchPrescriptions();
       if (role === "patient") {
         await fetchDoctors();
       }
@@ -116,9 +143,21 @@ export default function AppointmentsPortal() {
     register: registerBooking,
     handleSubmit: handleSubmitBooking,
     reset: resetBooking,
+    setValue: setBookingValue,
     formState: { errors: bookingErrors },
   } = useForm({
     resolver: zodResolver(bookingSchema),
+  });
+
+  // React Hook Form for Rescheduling
+  const {
+    register: registerReschedule,
+    handleSubmit: handleSubmitReschedule,
+    reset: resetReschedule,
+    setValue: setRescheduleValue,
+    formState: { errors: rescheduleErrors },
+  } = useForm({
+    resolver: zodResolver(rescheduleSchema),
   });
 
   // React Hook Form for Reviews
@@ -131,6 +170,19 @@ export default function AppointmentsPortal() {
     resolver: zodResolver(reviewSchema),
   });
 
+  // Handle auto-opening booking modal if search parameters are present
+  useEffect(() => {
+    if (doctors.length > 0 && role === "patient") {
+      const preSelectedDoctorId = searchParams.get("doctorId");
+      const shouldOpenBook = searchParams.get("book") === "true";
+      
+      if (shouldOpenBook && preSelectedDoctorId) {
+        setBookingValue("doctorId", preSelectedDoctorId);
+        setBookingOpen(true);
+      }
+    }
+  }, [doctors, role, searchParams, setBookingValue]);
+
   const onBookSubmit = async (values) => {
     setIsSubmitting(true);
     try {
@@ -139,14 +191,37 @@ export default function AppointmentsPortal() {
         body: JSON.stringify(values),
       });
 
-      if (res.success) {
-        toast.success("Appointment booked successfully.");
+      if (res.success && res.data) {
+        toast.success("Appointment booked! Redirecting to payment...");
         setBookingOpen(false);
         resetBooking();
-        fetchAppointments();
+        // Redirect to payment screen
+        router.push(`/dashboard/payment?appointmentId=${res.data._id}`);
       }
     } catch (err) {
       toast.error(err.message || "Failed to schedule appointment.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const onRescheduleSubmit = async (values) => {
+    setIsSubmitting(true);
+    try {
+      const res = await apiRequest(`/appointments/${selectedAppointment._id}/reschedule`, {
+        method: "PATCH",
+        body: JSON.stringify(values),
+      });
+
+      if (res.success) {
+        toast.success("Appointment rescheduled successfully.");
+        setRescheduleOpen(false);
+        setSelectedAppointment(null);
+        resetReschedule();
+        fetchAppointments();
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to reschedule appointment.");
     } finally {
       setIsSubmitting(false);
     }
@@ -186,7 +261,6 @@ export default function AppointmentsPortal() {
 
   const handleWritePrescription = async (e) => {
     e.preventDefault();
-    // Validate medicines
     const validMedicines = prescriptionMedicines.filter(m => m.name.trim() !== "");
     if (validMedicines.length === 0) {
       toast.error("Please add at least one medicine.");
@@ -211,6 +285,7 @@ export default function AppointmentsPortal() {
         setPrescriptionMedicines([{ name: "", dosage: "", duration: "" }]);
         setPrescriptionAdvice("");
         fetchAppointments();
+        fetchPrescriptions();
       }
     } catch (err) {
       toast.error(err.message || "Prescription recording failed.");
@@ -227,6 +302,7 @@ export default function AppointmentsPortal() {
         method: "POST",
         body: JSON.stringify({
           doctorId: selectedAppointment.doctorId,
+          appointmentId: selectedAppointment._id,
           rating: values.rating,
           comment: values.comment
         }),
@@ -244,6 +320,16 @@ export default function AppointmentsPortal() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const isFutureAppointment = (dateStr, timeStr) => {
+    const now = new Date();
+    const appDate = new Date(`${dateStr}T${timeStr}`);
+    return appDate > now;
+  };
+
+  const getPrescriptionForAppointment = (appId) => {
+    return prescriptions.find(p => p.appointmentId === appId);
   };
 
   if (loading) {
@@ -271,6 +357,8 @@ export default function AppointmentsPortal() {
     );
   }
 
+  const matchingPrescription = selectedAppointment ? getPrescriptionForAppointment(selectedAppointment._id) : null;
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -297,152 +385,185 @@ export default function AppointmentsPortal() {
             />
           ) : (
             <Table headers={role === "patient" ? ["Doctor", "Date/Time", "Fee", "Status", "Payment", "Action"] : role === "doctor" ? ["Patient Name", "Email", "Date/Time", "Status", "Payment", "Action"] : ["Patient Name", "Doctor", "Date/Time", "Status", "Payment", "Action"]}>
-              {appointments.map((app) => (
-                <TableRow key={app._id}>
-                  {role === "patient" ? (
-                    <TableCell className="font-semibold text-foreground">{app.doctorName}</TableCell>
-                  ) : (
-                    <TableCell className="font-semibold text-foreground">{app.patientName}</TableCell>
-                  )}
+              {appointments.map((app) => {
+                const canEdit = app.status !== "completed" && app.status !== "cancelled" && isFutureAppointment(app.appointmentDate, app.appointmentTime);
+                return (
+                  <TableRow key={app._id}>
+                    {role === "patient" ? (
+                      <TableCell className="font-semibold text-foreground">{app.doctorName}</TableCell>
+                    ) : (
+                      <TableCell className="font-semibold text-foreground">{app.patientName}</TableCell>
+                    )}
 
-                  {role === "admin" && (
-                    <TableCell className="text-xs text-muted-foreground">{app.doctorName}</TableCell>
-                  )}
+                    {role === "admin" && (
+                      <TableCell className="text-xs text-muted-foreground">{app.doctorName}</TableCell>
+                    )}
 
-                  {role === "doctor" && (
-                    <TableCell className="text-xs text-muted-foreground">{app.patientEmail}</TableCell>
-                  )}
+                    {role === "doctor" && (
+                      <TableCell className="text-xs text-muted-foreground">{app.patientEmail}</TableCell>
+                    )}
 
-                  <TableCell className="text-xs">{app.appointmentDate} at {app.appointmentTime}</TableCell>
-                  
-                  {role === "patient" && (
-                    <TableCell className="font-semibold text-foreground">${app.fee}</TableCell>
-                  )}
+                    <TableCell className="text-xs">{app.appointmentDate} at {app.appointmentTime}</TableCell>
+                    
+                    {role === "patient" && (
+                      <TableCell className="font-semibold text-foreground">${app.fee}</TableCell>
+                    )}
 
-                  <TableCell>
-                    <Badge variant={app.status === "completed" ? "primary" : app.status === "confirmed" ? "success" : app.status === "cancelled" ? "danger" : "warning"}>
-                      {app.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={app.paymentStatus === "paid" ? "success" : "danger"}>
-                      {app.paymentStatus}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {/* Patient Actions */}
-                      {role === "patient" && (
-                        <>
-                          {app.paymentStatus === "unpaid" && app.status !== "cancelled" && (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => router.push(`/dashboard/payment?appointmentId=${app._id}`)}
-                              className="flex items-center gap-1"
-                            >
-                              <CreditCard size={14} />
-                              Pay Fee
-                            </Button>
-                          )}
-                          {app.status === "completed" && (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => {
-                                setSelectedAppointment(app);
-                                setReviewOpen(true);
-                              }}
-                              className="flex items-center gap-1"
-                            >
-                              <Star size={14} />
-                              Review
-                            </Button>
-                          )}
-                          {app.status === "pending" && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-destructive hover:bg-destructive/10" 
-                              onClick={() => handleUpdateStatus(app._id, "cancelled")}
-                            >
-                              Cancel
-                            </Button>
-                          )}
-                        </>
-                      )}
+                    <TableCell>
+                      <Badge variant={app.status === "completed" ? "primary" : app.status === "confirmed" ? "success" : app.status === "cancelled" ? "danger" : "warning"}>
+                        {app.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={app.paymentStatus === "paid" ? "success" : "danger"}>
+                        {app.paymentStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* VIEW DETAILS (ALL ROLES) */}
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => {
+                            setSelectedAppointment(app);
+                            setDetailsOpen(true);
+                          }}
+                          className="flex items-center gap-1 hover:bg-muted text-foreground"
+                        >
+                          <Eye size={12} />
+                          View
+                        </Button>
 
-                      {/* Doctor Actions */}
-                      {role === "doctor" && (
-                        <>
-                          {app.status === "pending" && (
-                            <>
+                        {/* Patient Actions */}
+                        {role === "patient" && (
+                          <>
+                            {app.paymentStatus === "unpaid" && app.status !== "cancelled" && (
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="text-emerald-600 border-emerald-600/30 hover:bg-emerald-600/10"
+                                onClick={() => router.push(`/dashboard/payment?appointmentId=${app._id}`)}
+                                className="flex items-center gap-1"
+                              >
+                                <CreditCard size={12} />
+                                Pay
+                              </Button>
+                            )}
+                            {canEdit && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => {
+                                  setSelectedAppointment(app);
+                                  setRescheduleValue("appointmentDate", app.appointmentDate);
+                                  setRescheduleValue("appointmentTime", app.appointmentTime);
+                                  setRescheduleOpen(true);
+                                }}
+                                className="flex items-center gap-1 text-primary border-primary/20 hover:bg-primary/5"
+                              >
+                                <RefreshCw size={12} />
+                                Reschedule
+                              </Button>
+                            )}
+                            {app.status === "completed" && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => {
+                                  setSelectedAppointment(app);
+                                  setReviewOpen(true);
+                                }}
+                                className="flex items-center gap-1"
+                              >
+                                <Star size={12} />
+                                Review
+                              </Button>
+                            )}
+                            {(app.status === "pending" || app.status === "confirmed") && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-destructive hover:bg-destructive/10" 
+                                onClick={() => handleUpdateStatus(app._id, "cancelled")}
+                              >
+                                Cancel
+                              </Button>
+                            )}
+                          </>
+                        )}
+
+                        {/* Doctor Actions */}
+                        {role === "doctor" && (
+                          <>
+                            {app.status === "pending" && (
+                              <>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="text-emerald-600 border-emerald-600/30 hover:bg-emerald-600/10"
+                                  onClick={() => handleUpdateStatus(app._id, "confirmed")}
+                                >
+                                  Accept
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="text-destructive hover:bg-destructive/10"
+                                  onClick={() => handleUpdateStatus(app._id, "cancelled")}
+                                >
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+                            {app.status === "confirmed" && app.paymentStatus === "paid" && (
+                              <Button 
+                                variant="primary" 
+                                size="sm" 
+                                onClick={() => {
+                                  setSelectedAppointment(app);
+                                  setPrescriptionOpen(true);
+                                }}
+                                className="flex items-center gap-1"
+                              >
+                                <FileEdit size={12} />
+                                Prescribe
+                              </Button>
+                            )}
+                            {app.status === "confirmed" && app.paymentStatus !== "paid" && (
+                              <span className="text-xs text-muted-foreground font-medium italic">Unpaid</span>
+                            )}
+                          </>
+                        )}
+
+                        {/* Admin Actions */}
+                        {role === "admin" && (
+                          <>
+                            {app.status === "pending" && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
                                 onClick={() => handleUpdateStatus(app._id, "confirmed")}
                               >
-                                Accept
+                                Confirm
                               </Button>
+                            )}
+                            {app.status !== "completed" && app.status !== "cancelled" && (
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
                                 className="text-destructive hover:bg-destructive/10"
                                 onClick={() => handleUpdateStatus(app._id, "cancelled")}
                               >
-                                Reject
+                                Cancel
                               </Button>
-                            </>
-                          )}
-                          {app.status === "confirmed" && app.paymentStatus === "paid" && (
-                            <Button 
-                              variant="primary" 
-                              size="sm" 
-                              onClick={() => {
-                                setSelectedAppointment(app);
-                                setPrescriptionOpen(true);
-                              }}
-                              className="flex items-center gap-1"
-                            >
-                              <FileEdit size={14} />
-                              Prescribe
-                            </Button>
-                          )}
-                          {app.status === "confirmed" && app.paymentStatus !== "paid" && (
-                            <span className="text-xs text-muted-foreground font-medium italic">Unpaid</span>
-                          )}
-                        </>
-                      )}
-
-                      {/* Admin Actions */}
-                      {role === "admin" && (
-                        <>
-                          {app.status === "pending" && (
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleUpdateStatus(app._id, "confirmed")}
-                            >
-                              Confirm
-                            </Button>
-                          )}
-                          {app.status !== "completed" && app.status !== "cancelled" && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-destructive hover:bg-destructive/10"
-                              onClick={() => handleUpdateStatus(app._id, "cancelled")}
-                            >
-                              Cancel
-                            </Button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </Table>
           )}
         </CardContent>
@@ -458,12 +579,12 @@ export default function AppointmentsPortal() {
             <select
               {...registerBooking("doctorId")}
               disabled={isSubmitting}
-              className="w-full bg-background border border-border rounded-xs px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent transition-all"
+              className="w-full bg-background border border-border rounded-xs px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent transition-all h-[38px]"
             >
               <option value="">-- Select Doctor --</option>
               {doctors.map(doc => (
                 <option key={doc._id} value={doc._id}>
-                  {doc.name} ({doc.specialization}) - Fee: ${doc.fee}
+                  {doc.name} ({doc.specialization}) - Fee: ${doc.consultationFee !== undefined ? doc.consultationFee : doc.fee}
                 </option>
               ))}
             </select>
@@ -484,11 +605,27 @@ export default function AppointmentsPortal() {
           <Input
             label="Appointment Time"
             name="appointmentTime"
-            type="time"
+            placeholder="e.g. 10:00 AM"
+            type="text"
             register={registerBooking}
             error={bookingErrors.appointmentTime?.message}
             disabled={isSubmitting}
           />
+
+          <div className="flex flex-col gap-1 w-full">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Describe Symptoms
+            </label>
+            <textarea
+              {...registerBooking("symptoms")}
+              placeholder="e.g. Fever, persistent cough, headache since 2 days..."
+              disabled={isSubmitting}
+              className="w-full min-h-[80px] bg-background border border-border rounded-xs px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent transition-all"
+            />
+            {bookingErrors.symptoms && (
+              <span className="text-xs font-medium text-destructive mt-0.5">{bookingErrors.symptoms.message}</span>
+            )}
+          </div>
 
           <Button type="submit" variant="primary" className="w-full" isLoading={isSubmitting}>
             Confirm Booking
@@ -496,7 +633,119 @@ export default function AppointmentsPortal() {
         </form>
       </Dialog>
 
-      {/* DIALOG 2: WRITE PRESCRIPTION (DOCTOR ONLY) */}
+      {/* DIALOG 2: RESCHEDULE APPOINTMENT */}
+      <Dialog isOpen={rescheduleOpen} onClose={() => setRescheduleOpen(false)} title="Reschedule Appointment">
+        <form onSubmit={handleSubmitReschedule(onRescheduleSubmit)} className="space-y-4">
+          <Input
+            label="New Appointment Date"
+            name="appointmentDate"
+            type="date"
+            register={registerReschedule}
+            error={rescheduleErrors.appointmentDate?.message}
+            disabled={isSubmitting}
+          />
+
+          <Input
+            label="New Appointment Time"
+            name="appointmentTime"
+            type="text"
+            placeholder="e.g. 11:30 AM"
+            register={registerReschedule}
+            error={rescheduleErrors.appointmentTime?.message}
+            disabled={isSubmitting}
+          />
+
+          <Button type="submit" variant="primary" className="w-full" isLoading={isSubmitting}>
+            Reschedule Booking
+          </Button>
+        </form>
+      </Dialog>
+
+      {/* DIALOG 3: VIEW APPOINTMENT DETAILS */}
+      <Dialog isOpen={detailsOpen} onClose={() => setDetailsOpen(false)} title="Appointment Information">
+        {selectedAppointment && (
+          <div className="space-y-4 text-sm">
+            <div className="grid grid-cols-2 gap-4 border-b border-border/40 pb-4">
+              <div>
+                <span className="text-2xs font-bold text-muted-foreground uppercase tracking-wider block">Specialist</span>
+                <span className="font-semibold text-foreground">{selectedAppointment.doctorName}</span>
+                <span className="text-3xs text-muted-foreground block font-mono">{selectedAppointment.doctorEmail}</span>
+              </div>
+              <div>
+                <span className="text-2xs font-bold text-muted-foreground uppercase tracking-wider block">Patient</span>
+                <span className="font-semibold text-foreground">{selectedAppointment.patientName}</span>
+                <span className="text-3xs text-muted-foreground block font-mono">{selectedAppointment.patientEmail}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 border-b border-border/40 pb-4">
+              <div>
+                <span className="text-2xs font-bold text-muted-foreground uppercase tracking-wider block">Date & Time</span>
+                <span className="font-medium text-foreground">{selectedAppointment.appointmentDate} at {selectedAppointment.appointmentTime}</span>
+              </div>
+              <div>
+                <span className="text-2xs font-bold text-muted-foreground uppercase tracking-wider block">Consultation Fee</span>
+                <span className="font-semibold text-foreground">${selectedAppointment.fee}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 border-b border-border/40 pb-4">
+              <div>
+                <span className="text-2xs font-bold text-muted-foreground uppercase tracking-wider block">Status</span>
+                <Badge variant={selectedAppointment.status === "completed" ? "primary" : selectedAppointment.status === "confirmed" ? "success" : selectedAppointment.status === "cancelled" ? "danger" : "warning"}>
+                  {selectedAppointment.status}
+                </Badge>
+              </div>
+              <div>
+                <span className="text-2xs font-bold text-muted-foreground uppercase tracking-wider block">Payment Status</span>
+                <Badge variant={selectedAppointment.paymentStatus === "paid" ? "success" : "danger"}>
+                  {selectedAppointment.paymentStatus}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="border-b border-border/40 pb-4">
+              <span className="text-2xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">Symptoms Reported</span>
+              <p className="p-3 bg-muted/20 border border-border/40 rounded-xs text-xs italic text-foreground leading-relaxed">
+                {selectedAppointment.symptoms || "No symptoms specified."}
+              </p>
+            </div>
+
+            {selectedAppointment.status === "completed" && (
+              <div>
+                <span className="text-2xs font-bold text-muted-foreground uppercase tracking-wider block mb-1 flex items-center gap-1">
+                  <ClipboardList size={14} className="text-primary" />
+                  Prescription Details
+                </span>
+                {matchingPrescription ? (
+                  <div className="space-y-3 p-3 bg-primary/5 border border-primary/10 rounded-xs text-xs">
+                    <div className="space-y-1.5">
+                      <p className="font-bold text-foreground uppercase tracking-wider text-2xs">Medicines:</p>
+                      <ul className="list-disc pl-4 space-y-1">
+                        {matchingPrescription.medicines.map((med, index) => (
+                          <li key={index}>
+                            <span className="font-bold text-foreground">{med.name}</span> &bull; {med.dosage} &bull; {med.duration}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    {matchingPrescription.advice && (
+                      <div className="pt-2 border-t border-border/40">
+                        <p className="font-bold text-foreground uppercase tracking-wider text-2xs mb-0.5">Special Advice:</p>
+                        <p className="italic text-muted-foreground">{matchingPrescription.advice}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">Prescription data is being loaded or was not created yet.</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </Dialog>
+
+      {/* DIALOG 4: WRITE PRESCRIPTION (DOCTOR ONLY) */}
       <Dialog isOpen={prescriptionOpen} onClose={() => setPrescriptionOpen(false)} title="Compose Prescription">
         <form onSubmit={handleWritePrescription} className="space-y-4">
           <div className="space-y-3">
@@ -573,7 +822,7 @@ export default function AppointmentsPortal() {
         </form>
       </Dialog>
 
-      {/* DIALOG 3: SUBMIT REVIEW (PATIENT ONLY) */}
+      {/* DIALOG 5: SUBMIT REVIEW (PATIENT ONLY) */}
       <Dialog isOpen={reviewOpen} onClose={() => setReviewOpen(false)} title="Submit Doctor Review">
         <form onSubmit={handleSubmitReview(onReviewSubmit)} className="space-y-4">
           <div className="flex flex-col gap-1 w-full">
@@ -618,5 +867,13 @@ export default function AppointmentsPortal() {
         </form>
       </Dialog>
     </div>
+  );
+}
+
+export default function AppointmentsPortal() {
+  return (
+    <Suspense fallback={<SkeletonTable />}>
+      <AppointmentsPortalContent />
+    </Suspense>
   );
 }

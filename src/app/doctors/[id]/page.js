@@ -20,9 +20,11 @@ import {
   CalendarDays, 
   Heart, 
   ArrowLeft,
-  Mail,
   UserCheck,
-  MessageSquare
+  MessageSquare,
+  Clock,
+  MapPin,
+  GraduationCap
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -35,6 +37,11 @@ export default function DoctorDetailsPage({ params }) {
   const [doctor, setDoctor] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [favLoading, setFavLoading] = useState(false);
+
+  const user = session?.user;
+  const isPatient = user?.role === "patient";
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -42,8 +49,18 @@ export default function DoctorDetailsPage({ params }) {
         setLoading(true);
         // Fetch doctor profile
         const docRes = await apiRequest(`/doctors/${doctorId}`);
-        if (docRes.success) {
-          setDoctor(docRes.data);
+        if (docRes.success && docRes.data) {
+          const docData = docRes.data;
+          
+          // Verify doctor is approved/verified
+          const isApproved = docData.verificationStatus === "verified" || docData.status === "approved";
+          if (!isApproved) {
+            toast.error("This doctor profile is not available publicly.");
+            router.push("/doctors");
+            return;
+          }
+
+          setDoctor(docData);
         } else {
           toast.error("Doctor profile not found.");
           router.push("/doctors");
@@ -55,14 +72,57 @@ export default function DoctorDetailsPage({ params }) {
         if (revRes.success) {
           setReviews(revRes.data);
         }
+
+        // Check if doctor is in favorites
+        if (user && isPatient) {
+          const meRes = await apiRequest("/users/me");
+          if (meRes.success && meRes.data) {
+            const favorites = meRes.data.favorites || [];
+            setIsFavorited(favorites.includes(doctorId));
+          }
+        }
       } catch (err) {
         console.error(err);
+        toast.error("Failed to load doctor details.");
+        router.push("/doctors");
       } finally {
         setLoading(false);
       }
     };
-    fetchDetails();
-  }, [doctorId]);
+    
+    if (doctorId) {
+      fetchDetails();
+    }
+  }, [doctorId, user, isPatient, router]);
+
+  const handleToggleFavorite = async () => {
+    if (!user) {
+      toast.error("Please login to add to favorites.");
+      router.push(`/login?redirect=/doctors/${doctorId}`);
+      return;
+    }
+    if (!isPatient) {
+      toast.error("Only patients can favorite doctors.");
+      return;
+    }
+
+    try {
+      setFavLoading(true);
+      const res = await apiRequest("/users/favorites", {
+        method: "PUT",
+        body: JSON.stringify({ doctorId }),
+      });
+
+      if (res.success) {
+        setIsFavorited(!isFavorited);
+        toast.success(isFavorited ? "Removed from favorites." : "Added to favorites!");
+      }
+    } catch (err) {
+      toast.error("Could not update favorites.");
+    } finally {
+      setFavLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -72,6 +132,18 @@ export default function DoctorDetailsPage({ params }) {
           <Skeleton className="h-6 w-24" />
           <Skeleton className="h-10 w-64" />
           <Skeleton className="h-40 w-full" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!doctor) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col transition-colors duration-150">
+        <PublicNavbar />
+        <main className="flex-1 max-w-3xl mx-auto px-6 py-16 w-full text-center">
+          <EmptyState title="Doctor Not Found" description="This profile could not be loaded or is invalid." />
         </main>
         <Footer />
       </div>
@@ -116,7 +188,10 @@ export default function DoctorDetailsPage({ params }) {
               <div>
                 <Badge variant="success">{doctor.specialization}</Badge>
                 <h1 className="text-2xl font-black text-foreground mt-1.5">{displayName}</h1>
-                <p className="text-xs text-muted-foreground mt-1">Verified Healthcare Specialist</p>
+                <p className="text-xs text-muted-foreground mt-1 flex items-center justify-center md:justify-start gap-1 font-medium">
+                  <GraduationCap size={14} className="text-primary" />
+                  {doctor.qualifications || "MBBS"} &bull; {doctor.hospitalName || "General Hospital"}
+                </p>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t border-border/40 text-xs">
@@ -145,16 +220,33 @@ export default function DoctorDetailsPage({ params }) {
             </div>
 
             {/* Booking action trigger */}
-            <div className="w-full md:w-auto shrink-0 flex flex-col gap-3">
+            <div className="w-full md:w-auto shrink-0 flex flex-row md:flex-col gap-3">
               {session ? (
-                <Link href="/dashboard/appointments">
-                  <Button variant="primary" className="w-full flex items-center justify-center gap-1.5">
-                    <CalendarDays size={16} />
-                    Schedule Appointment
-                  </Button>
-                </Link>
+                isPatient ? (
+                  <>
+                    <Link href={`/dashboard/appointments?doctorId=${doctor._id}&book=true`} className="flex-1">
+                      <Button variant="primary" className="w-full flex items-center justify-center gap-1.5">
+                        <CalendarDays size={16} />
+                        Book Appointment
+                      </Button>
+                    </Link>
+                    <Button 
+                      variant="outline" 
+                      onClick={handleToggleFavorite} 
+                      disabled={favLoading}
+                      className="flex items-center justify-center gap-1.5"
+                    >
+                      <Heart size={16} fill={isFavorited ? "currentColor" : "none"} className={isFavorited ? "text-red-500" : ""} />
+                      {isFavorited ? "Favorited" : "Favorite"}
+                    </Button>
+                  </>
+                ) : (
+                  <div className="text-xs text-muted-foreground italic font-medium p-3 bg-muted/30 border border-border text-center rounded-xs">
+                    Sign in as Patient to Book
+                  </div>
+                )
               ) : (
-                <Link href={`/login?redirect=/doctors/${doctor._id}`}>
+                <Link href={`/login?redirect=/doctors/${doctor._id}`} className="w-full">
                   <Button variant="primary" className="w-full">
                     Login to Book
                   </Button>
@@ -187,11 +279,67 @@ export default function DoctorDetailsPage({ params }) {
                     <span className="font-semibold text-foreground">{doctor.specialization}</span>
                   </div>
                   <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Qualifications</span>
+                    <span className="font-semibold text-foreground">{doctor.qualifications || "MBBS"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Medical Facility</span>
+                    <span className="font-semibold text-foreground flex items-center gap-1">
+                      <MapPin size={12} className="text-primary" />
+                      {doctor.hospitalName || "General Hospital"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Credential Verification</span>
                     <Badge variant="success" className="flex items-center gap-0.5">
                       <UserCheck size={10} />
                       Approved Practitioner
                     </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Available Days and Slots */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Clinic Availability</CardTitle>
+                <CardDescription>Configure scheduling based on weekly active days and slots</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <CalendarDays size={14} className="text-primary" />
+                    Available Days
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {doctor.availableDays && doctor.availableDays.length > 0 ? (
+                      doctor.availableDays.map((day) => (
+                        <Badge key={day} variant="primary">
+                          {day}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">No specific days configured.</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2 border-t border-border/40">
+                  <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Clock size={14} className="text-primary" />
+                    Available Slots
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {doctor.availableSlots && doctor.availableSlots.length > 0 ? (
+                      doctor.availableSlots.map((slot) => (
+                        <Badge key={slot} variant="outline" className="border-primary/20 text-primary">
+                          {slot}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">No specific time slots configured.</span>
+                    )}
                   </div>
                 </div>
               </CardContent>
