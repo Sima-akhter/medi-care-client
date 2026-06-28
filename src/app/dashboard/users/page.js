@@ -25,6 +25,7 @@ export default function AdminUsersPage() {
 
   const fetchUsers = async () => {
     try {
+      setLoading(true);
       let url = "/users";
       const params = [];
       if (search) params.push(`search=${encodeURIComponent(search)}`);
@@ -39,6 +40,8 @@ export default function AdminUsersPage() {
       }
     } catch (err) {
       toast.error("Could not fetch user list.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -104,12 +107,17 @@ export default function AdminUsersPage() {
     }
   };
 
+  if (loading) {
+    return <SkeletonTable />;
+  }
+
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-black text-foreground">User Management</h1>
         <p className="text-xs text-muted-foreground">Administer roles, block accounts, and audit medical profiles</p>
       </div>
+
 
       {/* Filter Options */}
       <div className="flex flex-col sm:flex-row gap-4 items-end sm:items-center justify-between">
