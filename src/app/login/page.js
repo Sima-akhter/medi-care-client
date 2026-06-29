@@ -12,7 +12,7 @@ import { apiRequest, setCookie } from "@/lib/api-client";
 import Input from "@/components/Input";
 import Button from "@/components/Button";
 import Card, { CardHeader, CardTitle, CardDescription, CardContent } from "@/components/Card";
-import { HeartPulse, Loader2 } from "lucide-react";
+import { HeartPulse, Loader2, Shield, User, Stethoscope } from "lucide-react";
 import { Suspense } from "react";
 
 const loginSchema = z.object({
@@ -31,6 +31,7 @@ function LoginPageContent() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(loginSchema),
@@ -78,6 +79,12 @@ function LoginPageContent() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleQuickLogin = async (email, password) => {
+    setValue("email", email);
+    setValue("password", password);
+    await onSubmit({ email, password });
   };
 
   const handleGoogleLogin = async () => {
@@ -141,6 +148,61 @@ function LoginPageContent() {
                 Sign In
               </Button>
             </form>
+
+            {/* QUICK ACCESS DEMO */}
+            <div className="mt-6 space-y-3 pt-4 border-t border-border/40">
+              <div className="text-center">
+                <h3 className="text-xs font-bold text-foreground tracking-wider uppercase">Quick Access Demo</h3>
+                <p className="text-4xs text-muted-foreground mt-0.5 font-medium">Choose a demo account to instantly explore each dashboard.</p>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin("admin@gmail.com", "Admin@2026")}
+                  disabled={isLoading || isGoogleLoading}
+                  className="flex items-center gap-2.5 p-2 bg-primary/5 hover:bg-primary/10 border border-primary/20 hover:border-primary/40 rounded-xs transition-all text-left cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="p-1 bg-primary/10 text-primary rounded-xs shrink-0 group-hover:scale-105 transition-transform">
+                    <Shield size={14} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-3xs font-bold text-foreground leading-none">Admin</p>
+                    <p className="text-4xs text-muted-foreground truncate leading-none mt-0.5">System Management</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin("patient@gmail.com", "Patient@2026")}
+                  disabled={isLoading || isGoogleLoading}
+                  className="flex items-center gap-2.5 p-2 bg-primary/5 hover:bg-primary/10 border border-primary/20 hover:border-primary/40 rounded-xs transition-all text-left cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="p-1 bg-primary/10 text-primary rounded-xs shrink-0 group-hover:scale-105 transition-transform">
+                    <User size={14} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-3xs font-bold text-foreground leading-none">Patient</p>
+                    <p className="text-4xs text-muted-foreground truncate leading-none mt-0.5">Book Appointments</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin("doctor@gmail.com", "Doctor@2026")}
+                  disabled={isLoading || isGoogleLoading}
+                  className="flex items-center gap-2.5 p-2 bg-primary/5 hover:bg-primary/10 border border-primary/20 hover:border-primary/40 rounded-xs transition-all text-left cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="p-1 bg-primary/10 text-primary rounded-xs shrink-0 group-hover:scale-105 transition-transform">
+                    <Stethoscope size={14} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-3xs font-bold text-foreground leading-none">Doctor</p>
+                    <p className="text-4xs text-muted-foreground truncate leading-none mt-0.5">Manage Patients</p>
+                  </div>
+                </button>
+              </div>
+            </div>
 
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
