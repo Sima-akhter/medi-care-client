@@ -15,12 +15,19 @@ Medicare Connect is a modern, full-stack healthcare platform connecting patients
 
 ---
 
-## 🔑 Administrative Credentials (For Grading Review)
+## 🔑 Quick Access Demo Credentials (For Grading Review)
 
-* **Admin Email:** `simaakter5301@gmail.com`
-* **Admin Password:** *[Provided in the submission form]*
+* **Admin Access:**
+  * **Email:** `admin@gmail.com`
+  * **Password:** `Admin@2026`
+* **Patient Access:**
+  * **Email:** `patient@gmail.com`
+  * **Password:** `Patient@2026`
+* **Doctor Access:**
+  * **Email:** `doctor@gmail.com`
+  * **Password:** `Doctor@2026`
 
-*(Note: Additional administrators can be configured by registering a standard user account and changing their `role` field directly in the MongoDB `users` collection to `admin`.)*
+*(Note: The primary seeded database administrator account `simaakter5301@gmail.com` is also active. Additional administrators can be configured by registering a standard user account and changing their `role` field directly in the MongoDB `users` collection to `admin`.)*
 
 ---
 
