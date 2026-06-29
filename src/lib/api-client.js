@@ -1,28 +1,30 @@
 import toast from "react-hot-toast";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://medi-care-server-liart.vercel.app/api";
 
 export function getCookie(name) {
-  if (typeof document === 'undefined') return null;
+  if (typeof document === "undefined") return null;
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop().split(';').shift();
+  if (parts.length === 2) return parts.pop().split(";").shift();
   return null;
 }
 
 export function setCookie(name, value, days = 7) {
-  if (typeof document === 'undefined') return;
+  if (typeof document === "undefined") return;
   let expires = "";
   if (days) {
     const date = new Date();
-    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+    date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
     expires = "; expires=" + date.toUTCString();
   }
   document.cookie = `${name}=${value || ""}${expires}; path=/; SameSite=Lax; Secure`;
 }
 
 export function deleteCookie(name) {
-  if (typeof document === 'undefined') return;
+  if (typeof document === "undefined") return;
   document.cookie = `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax; Secure`;
 }
 
@@ -44,14 +46,19 @@ export async function apiRequest(endpoint, options = {}) {
     credentials: "include",
   };
 
-  const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`;
+  const url = endpoint.startsWith("http")
+    ? endpoint
+    : `${API_BASE_URL}${endpoint}`;
 
   try {
     const response = await fetch(url, config);
 
     if (response.status === 401) {
       deleteCookie("jwt_token");
-      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.startsWith("/login")
+      ) {
         toast.error("Session expired. Please log in again.");
         window.location.href = "/login";
       }
