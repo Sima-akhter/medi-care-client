@@ -13,6 +13,7 @@ import Input from "@/components/Input";
 import Button from "@/components/Button";
 import Card, { CardHeader, CardTitle, CardDescription, CardContent } from "@/components/Card";
 import { Check, X, ShieldAlert, HeartPulse } from "lucide-react";
+import ImageUpload from "@/components/ImageUpload";
 
 const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -42,6 +43,7 @@ export default function RegisterPage() {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(registerSchema),
@@ -63,6 +65,7 @@ export default function RegisterPage() {
   });
 
   const selectedRole = watch("role");
+  const photoVal = watch("photo") || "";
   const passwordVal = watch("password") || "";
   const confirmPasswordVal = watch("confirmPassword") || "";
 
@@ -233,11 +236,10 @@ export default function RegisterPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Profile Photo URL"
-                  name="photo"
-                  placeholder="https://images.unsplash.com/photo-..."
-                  register={register}
+                <ImageUpload
+                  label="Profile Photo Upload"
+                  value={photoVal}
+                  onChange={(url) => setValue("photo", url)}
                   error={errors.photo?.message}
                   disabled={isLoading}
                 />
