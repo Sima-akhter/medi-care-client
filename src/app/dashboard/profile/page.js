@@ -12,6 +12,7 @@ import Button from "@/components/Button";
 import Card, { CardHeader, CardTitle, CardDescription, CardContent } from "@/components/Card";
 import Badge from "@/components/Badge";
 import { User, Mail, Shield, UserCog, Stethoscope, Phone, CalendarRange } from "lucide-react";
+import ImageUpload from "@/components/ImageUpload";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -64,6 +65,7 @@ export default function ProfilePage() {
   });
 
   const selectedDays = watch("availableDays") || [];
+  const imageVal = watch("image") || "";
 
   // Fetch full user profile from Express backend & doctor profile
   useEffect(() => {
@@ -264,11 +266,10 @@ export default function ProfilePage() {
                     disabled={isLoading}
                   />
 
-                  <Input
-                    label="Photo URL"
-                    name="image"
-                    placeholder="https://images.unsplash.com/photo-..."
-                    register={register}
+                  <ImageUpload
+                    label="Profile Photo Upload"
+                    value={imageVal}
+                    onChange={(url) => setValue("image", url)}
                     error={errors.image?.message}
                     disabled={isLoading}
                   />
