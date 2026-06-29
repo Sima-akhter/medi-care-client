@@ -38,7 +38,7 @@ export default function FindDoctorsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalDoctors, setTotalDoctors] = useState(0);
 
-  // Layout State (Card vs Table)
+  // Layout State (Card Grid vs Table List layout format)
   const [layout, setLayout] = useState("grid");
 
   const fetchDoctors = async () => {
