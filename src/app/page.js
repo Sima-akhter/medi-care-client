@@ -362,7 +362,13 @@ export default function Home() {
 
       {/* 2. DYNAMIC PLATFORM STATISTICS */}
       <section className="py-12 border-t border-b border-border bg-card">
-        <div className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center"
+        >
           <div className="space-y-1">
             <h3 className="text-3xl font-black text-primary">
               <AnimatedCounter target={stats.totalDoctors || 12} />+
@@ -387,7 +393,7 @@ export default function Home() {
             </h3>
             <p className="text-2xs font-bold text-muted-foreground uppercase tracking-wider">Patient Feedbacks</p>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       {/* 3. MEDICAL SPECIALIZATIONS SECTION */}
@@ -503,7 +509,13 @@ export default function Home() {
 
       {/* 5. WHY CHOOSE MEDICARE CONNECT (Static Advantages) */}
       <section className="py-16 bg-background">
-        <div className="max-w-5xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="max-w-5xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-12 items-center"
+        >
           <div className="space-y-6">
             <div>
               <span className="text-xs font-semibold text-primary uppercase tracking-wider">Advantages</span>
@@ -554,7 +566,7 @@ export default function Home() {
               <span>+1 (800) 555-0199</span>
             </div>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       {/* 6. DYNAMIC PATIENT SUCCESS STORIES (Testimonials) */}
