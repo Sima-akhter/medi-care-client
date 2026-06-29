@@ -141,9 +141,20 @@ export default function AdminDoctorsPage() {
                               Reject
                             </Button>
                           </>
+                        ) : verifStatus === "verified" || verifStatus === "approved" ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isUpdating}
+                            onClick={() => handleReject(doc._id)}
+                            className="flex items-center gap-1 text-destructive border-destructive/20 hover:bg-destructive/10"
+                          >
+                            <XCircle size={14} />
+                            Cancel Verification
+                          </Button>
                         ) : (
                           <span className="text-2xs font-semibold text-muted-foreground uppercase tracking-wider">
-                            No Actions Required
+                            Rejected Profile
                           </span>
                         )}
                       </div>
