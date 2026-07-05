@@ -107,7 +107,7 @@ export default function Footer() {
             </div>
             <div className="pt-2 border-t border-border/60">
               <p className="text-3xs font-bold uppercase tracking-wider text-foreground mb-2">Subscribe to wellness insights</p>
-              <form onSubmit={handleSubscribe} className="flex gap-1.5">
+              <form onSubmit={handleSubscribe} className="flex gap-1.5" suppressHydrationWarning>
                 <input
                   type="email"
                   placeholder="Enter email..."

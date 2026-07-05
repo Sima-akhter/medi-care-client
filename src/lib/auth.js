@@ -2,11 +2,7 @@ import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { MongoClient } from "mongodb";
 
-// ─── Connection Caching for Serverless ────────────────────────────────────────
-// In a serverless environment (Vercel), each cold start creates a new module
-// instance. We cache the MongoClient on the global object so subsequent warm
-// invocations reuse the existing connection pool instead of creating new ones.
-// This prevents connection pool exhaustion under concurrent load.
+
 let cachedClient = null;
 
 function getMongoClient() {
@@ -42,7 +38,7 @@ function getMongoClient() {
 }
 
 const client = getMongoClient();
-const db = client.db("mediCareConnect");
+const db = client.db("medi-care"); // Use the same database name as in db.js
 
 export const auth = betterAuth({
   database: mongodbAdapter(db, {

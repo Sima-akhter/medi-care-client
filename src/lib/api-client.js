@@ -1,8 +1,7 @@
 import toast from "react-hot-toast";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://medi-care-server-liart.vercel.app/api";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 export function getCookie(name) {
   if (typeof document === "undefined") return null;
@@ -29,21 +28,26 @@ export function deleteCookie(name) {
 }
 
 export async function apiRequest(endpoint, options = {}) {
+  const { timeout = 15000, ...restOptions } = options;
   const token = getCookie("jwt_token");
 
   const headers = {
     "Content-Type": "application/json",
-    ...options.headers,
+    ...restOptions.headers,
   };
 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+
   const config = {
-    ...options,
+    ...restOptions,
     headers,
     credentials: "include",
+    signal: controller.signal,
   };
 
   const url = endpoint.startsWith("http")
@@ -52,6 +56,7 @@ export async function apiRequest(endpoint, options = {}) {
 
   try {
     const response = await fetch(url, config);
+    clearTimeout(id);
 
     if (response.status === 401) {
       deleteCookie("jwt_token");
@@ -82,6 +87,10 @@ export async function apiRequest(endpoint, options = {}) {
 
     return data;
   } catch (error) {
+    if (error.name === "AbortError") {
+      toast.error("Request timed out. Please try again.");
+      throw new Error("Request timed out.");
+    }
     if (error.message === "Failed to fetch") {
       toast.error("Network error: Cannot reach the healthcare backend server.");
     }
